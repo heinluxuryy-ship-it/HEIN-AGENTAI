@@ -1,11 +1,9 @@
+# Uses official Python+Node combo image — NO Chromium needed (Baileys = pure WebSocket)
 FROM nikolaik/python-nodejs:python3.11-nodejs20
-
-# No Chromium needed! Baileys uses pure WebSocket connections.
-# This saves ~300MB RAM and 2+ minutes of build time.
 
 WORKDIR /app
 
-# Copy all project files into the container
+# Copy all project files
 COPY . /app
 
 # Install Python dependencies
@@ -14,8 +12,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Node dependencies (Baileys + Express + QRCode)
 RUN npm install --production
 
-# Expose the Flask Port
+# Railway injects the PORT env var automatically.
+# Flask will bind to it. The bridge always uses 5001 internally.
 EXPOSE 5000
 
-# Start script
+# Make start script executable
+RUN chmod +x start.sh
+
+# Launch both Node bridge + Python Flask
 CMD ["sh", "start.sh"]
