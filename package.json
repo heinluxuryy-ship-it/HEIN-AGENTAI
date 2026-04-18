@@ -1,0 +1,17 @@
+{
+  "name": "agent-workflow",
+  "version": "2.0.0",
+  "description": "HEIN AI WhatsApp Bridge (Baileys)",
+  "main": "wa_bridge.js",
+  "scripts": {
+    "bridge": "node wa_bridge.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "axios": "^1.15.0",
+    "express": "^4.21.0",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
+  }
+}

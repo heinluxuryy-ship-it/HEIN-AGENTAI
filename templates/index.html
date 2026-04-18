@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEIN AI | Executive Command Center</title>
+    <meta name="description" content="HEIN Luxury Autonomous AI Agent — Real-time intelligence, sales automation, and CRM.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar glass">
+            <div class="logo-container">
+                <span class="logo-text">HEIN <span class="accent-text">AI</span></span>
+                <p class="logo-sub">Execution Division</p>
+            </div>
+            <nav class="nav-links">
+                <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="customers" id="nav-customers">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                    <span>VIP Customers <span class="nav-badge" id="badge-customers">0</span></span>
+                </a>
+                <a href="#" class="nav-item" data-page="inventory" id="nav-inventory">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.55 16.45 1 14.55 1c-1.07 0-1.99.5-2.59 1.28L12 2.96l-.97-1.69C10.43 1.5 9.52 1 8.45 1 6.55 1 5 2.55 5 4.65c0 .47.11.91.18 1.35H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h17c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-5.45-3.35c.62 0 1.12.5 1.12 1.12s-.5 1.12-1.12 1.12-1.12-.5-1.12-1.12.5-1.12 1.12-1.12zM8.45 4.77c-.62 0-1.12-.5-1.12-1.12s.5-1.12 1.12-1.12 1.12.5 1.12 1.12-.5 1.12-1.12 1.12zM20 20H4V8h16v12z"/></svg>
+                    <span>Inventory <span class="nav-badge" id="badge-inventory">ERP</span></span>
+                </a>
+                <a href="#" class="nav-item" data-page="broadcast" id="nav-broadcast">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+                    <span>Broadcast</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings" id="nav-settings">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                    <span>AI Controls</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="pulse-dot" id="sidebar-pulse"></span>
+                    <span class="status-text" id="sidebar-status">INITIALIZING...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- ===== PAGE: DASHBOARD ===== -->
+            <div class="page active" id="page-dashboard">
+                <header class="main-header glass">
+                    <div class="header-left">
+                        <h1 class="page-title">Intelligence Overview</h1>
+                        <p class="subtitle">Welcome back, Director. HEIN AI is monitoring all assets.</p>
+                    </div>
+                    <div class="header-right">
+                        <div class="stat-mini">
+                            <span class="label">WhatsApp</span>
+                            <span class="value" id="header-wa-status">Checking...</span>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="stat-mini">
+                            <span class="label">Today's Traffic</span>
+                            <span class="value" id="header-traffic">0</span>
+                        </div>
+                        <button class="btn btn-primary" id="btn-sync">
+                            <svg class="icon-s" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                            Sync ERP
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Stat Cards Row -->
+                <div class="stats-row">
+                    <div class="stat-card glass">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Customers</div>
+                            <div class="stat-value" id="stat-customers">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon">👑</div>
+                        <div class="stat-info">
+                            <div class="stat-label">VIP Clients</div>
+                            <div class="stat-value" id="stat-vip">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-info">
+                            <div class="stat-label">Active Leads</div>
+                            <div class="stat-value" id="stat-leads">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-info">
+                            <div class="stat-label">Pending Orders</div>
+                            <div class="stat-value" id="stat-orders">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two Column: Activity + AI Test -->
+                <div class="dashboard-grid">
+                    <!-- Live Activity Feed -->
+                    <div class="card glass">
+                        <div class="card-header">
+                            <h2>Live Activity Feed</h2>
+                            <span id="dp-threads" style="font-size:0.75rem; color:var(--text-secondary)"></span>
+                        </div>
+                        <div class="log-container" id="log-feed">
+                            <div class="log-item"><span class="msg">Connecting to live feed...</span></div>
+                        </div>
+                    </div>
+
+                    <!-- AI Test Chat -->
+                    <div class="card glass">
+                        <div class="card-header">
+                            <h2>AI Test Chat</h2>
+                            <span style="font-size:0.75rem; color:var(--text-secondary)" id="dp-lat"></span>
+                        </div>
+                        <div class="chat-box" id="chat-box">
+                            <div class="chat-msg ai">Hello Director. I am HEIN AI — ready for simulation.</div>
+                        </div>
+                        <div class="chat-input-row">
+                            <input type="text" id="test-input" placeholder="Simulate a customer message..." class="search-input" />
+                            <button class="btn btn-primary" id="btn-test">Send</button>
+                        </div>
+                    </div>
+
+                    <!-- Agent Status -->
+                    <div class="card glass">
+                        <div class="card-header"><h2>Agent Network</h2></div>
+                        <div id="agent-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: CUSTOMERS ===== -->
+            <div class="page" id="page-customers">
+                <header class="main-header glass">
+                    <div class="header-left">
+                        <h1 class="page-title">VIP Customer Intelligence</h1>
+                        <p class="subtitle">All contacts stored in HEIN MongoDB Memory.</p>
+                    </div>
+                    <div class="header-right">
+                        <select id="tier-filter" class="filter-select">
+                            <option value="all">All Tiers</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Lead">Lead</option>
+                        </select>
+                        <input type="text" id="customer-search" placeholder="Search name or phone..." class="search-input">
+                    </div>
+                </header>
+                <div class="customers-grid" id="customers-grid">
+                    <div class="empty-state"><div style="font-size: 3rem;">👥</div><p>Loading customers from memory...</p></div>
+                </div>
+                <!-- Customer Detail Modal -->
+                <div class="modal-overlay" id="customer-modal" style="display:none;">
+                    <div class="modal glass">
+                        <div class="modal-header">
+                            <h3 id="modal-name">Customer Details</h3>
+                            <button class="modal-close" onclick="closeModal()">✕</button>
+                        </div>
+                        <div class="modal-body" id="modal-body"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: INVENTORY ===== -->
+            <div class="page" id="page-inventory">
+                <header class="main-header glass">
+                    <div class="header-left">
+                        <h1 class="page-title">ERP Inventory (Read-Only)</h1>
+                        <p class="subtitle">Live view of your product stock. The AI uses this to answer customer questions.</p>
+                    </div>
+                    <div class="header-right">
+                        <input type="text" id="inventory-search" placeholder="Search products..." class="search-input">
+                        <span class="stat-mini">
+                            <span class="label">Total Items</span>
+                            <span class="value" id="inventory-count">0</span>
+                        </span>
+                    </div>
+                </header>
+                <div class="card glass" style="margin:0 1.5rem 1.5rem;">
+                    <div class="inventory-hint" style="margin-bottom:1rem; padding:12px 16px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:10px; font-size:0.85rem; color:var(--text-secondary);">
+                        <strong style="color:#60a5fa;">How the AI uses this:</strong> When a customer asks "Do you have a blue watch in size 42?", the AI calls <code>check_inventory</code> and searches this collection to give a real-time answer. Add products to the <code>inventory</code> collection in your MongoDB Atlas to populate this view.
+                    </div>
+                    <div class="inventory-grid" id="inventory-grid">
+                        <div class="empty-state"><div style="font-size:3rem;">📦</div><p>Loading inventory...</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: BROADCAST ===== -->
+            <div class="page" id="page-broadcast">
+                <header class="main-header glass">
+                    <div class="header-left">
+                        <h1 class="page-title">Broadcast Center</h1>
+                        <p class="subtitle">Send mass WhatsApp messages to your customer segments.</p>
+                    </div>
+                </header>
+                <div class="broadcast-layout">
+                    <div class="card glass broadcast-compose">
+                        <h2>📤 Compose Message</h2>
+                        <div class="form-group">
+                            <label>Target Audience</label>
+                            <select id="broadcast-tier" class="filter-select full-width" onchange="previewBroadcast()">
+                                <option value="all">All Customers</option>
+                                <option value="VIP">VIP Clients Only</option>
+                                <option value="Lead">Active Leads Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Message</label>
+                            <textarea id="broadcast-message" placeholder="Type your luxury message here..." rows="8"></textarea>
+                        </div>
+                        <div class="broadcast-preview-bar glass" id="broadcast-preview">
+                            <span>📊 Select audience to see preview</span>
+                        </div>
+                        <div class="wa-notice" id="wa-notice"></div>
+                        <button class="btn btn-primary" id="btn-broadcast" onclick="sendBroadcast()">
+                            <svg class="icon-s" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+                            Send Broadcast
+                        </button>
+                    </div>
+                    <div class="card glass broadcast-history">
+                        <h2>📋 Broadcast Log</h2>
+                        <div class="log-container" id="broadcast-log">
+                            <div class="log-item"><span class="msg">No broadcasts sent yet.</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: SETTINGS (AI Controls) ===== -->
+            <div class="page" id="page-settings">
+                <header class="main-header glass">
+                    <div class="header-left">
+                        <h1 class="page-title">AI Controls</h1>
+                        <p class="subtitle">Configure AI behavior, language support, and quick responses. Changes are saved to MongoDB and active immediately.</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="btn btn-primary" id="btn-save-all" onclick="saveAllSettings()">
+                            💾 Save All Changes
+                        </button>
+                    </div>
+                </header>
+
+                <div class="settings-grid">
+                    <!-- AI Persona -->
+                    <div class="card glass settings-full-width">
+                        <div class="card-header">
+                            <h2>🧠 AI Persona & Behavior</h2>
+                            <span class="hint-tag">Defines how the AI thinks and speaks</span>
+                        </div>
+                        <div class="form-group">
+                            <label>System Prompt</label>
+                            <textarea id="persona-prompt" rows="10" placeholder="Write your AI's core instructions here..."></textarea>
+                        </div>
+                        <p id="persona-saved" style="color: var(--accent-emerald); margin-top: 10px; display:none;">✅ Saved to MongoDB!</p>
+                    </div>
+
+                    <!-- Language Support -->
+                    <div class="card glass">
+                        <div class="card-header">
+                            <h2>🌍 Language Support</h2>
+                            <span class="hint-tag">AI detects and replies in these languages</span>
+                        </div>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">The AI will automatically detect which language the customer uses and respond in the same language. Add one language per line.</p>
+                        <div class="form-group">
+                            <label>Supported Languages (one per line)</label>
+                            <textarea id="languages-input" rows="8" placeholder="English&#10;Somali&#10;Arabic&#10;French"></textarea>
+                        </div>
+                        <p style="font-size:0.8rem; color:#60a5fa; margin-top:0.5rem;">⚡ Pro tip: Add "Somali" to make the AI reply in Somali to Somali-speaking customers.</p>
+                    </div>
+
+                    <!-- Quick Message Rules -->
+                    <div class="card glass">
+                        <div class="card-header">
+                            <h2>⚡ Quick Response Rules</h2>
+                            <span class="hint-tag">The AI always follows these rules</span>
+                        </div>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Add specific rules the AI must always follow. For example, quick replies it should send for common questions, pricing policies, or product details.</p>
+                        <div class="form-group">
+                            <label>Rules (one per line)</label>
+                            <textarea id="quickmsg-input" rows="8" placeholder="If customer asks about price, say: 'Our starting price is $X.'&#10;Always end messages with: 'Warm regards, HEIN'&#10;If customer asks for shipping, say: 'We ship globally within 5-7 business days.'"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- WhatsApp Connection Status -->
+                    <div class="card glass">
+                        <h2>📱 WhatsApp Connection</h2>
+                        <div class="settings-status" id="settings-wa-status">
+                            <div class="wa-status-icon" id="wa-icon">⚙️</div>
+                            <div>
+                                <strong id="wa-provider-label">Checking...</strong>
+                                <p id="wa-provider-detail">Detecting configured provider...</p>
+                            </div>
+                        </div>
+                        <div id="wa-qr-container" style="display: none; padding: 20px; text-align: center; background: rgba(0,0,0,0.4); border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 10px; color: var(--text-primary);">Scan QR Code</h4>
+                            <img id="wa-qr-image" src="" alt="WhatsApp QR Code" style="width: 200px; height: 200px; border-radius: 12px; background: white; padding: 10px; margin: 0 auto; display: block;" />
+                        </div>
+                        <div class="settings-section">
+                            <h4>Option A — Meta Cloud API</h4>
+                            <div class="env-guide">
+                                <div class="env-row"><code>WHATSAPP_PHONE_ID</code><span>Your Meta Phone Number ID</span></div>
+                                <div class="env-row"><code>WHATSAPP_TOKEN</code><span>Your Meta Permanent Token</span></div>
+                            </div>
+                        </div>
+                        <p class="hint">Edit your <code>.env</code> file to configure API keys.</p>
+                    </div>
+
+                    <!-- MongoDB Status -->
+                    <div class="card glass">
+                        <h2>🗄️ MongoDB Memory</h2>
+                        <div id="db-status-card">
+                            <div class="settings-status">
+                                <div class="wa-status-icon">🔄</div>
+                                <div>
+                                    <strong>Checking connection...</strong>
+                                    <p id="db-detail">Connecting to Atlas...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <div class="env-row"><code>MONGODB_URI</code><span id="db-uri-status">Checking...</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Webhook Info -->
+                    <div class="card glass">
+                        <h2>🔗 Webhook Endpoint</h2>
+                        <p class="subtitle" style="margin-bottom: 1rem">Configure this URL in Meta or Twilio to receive live WhatsApp messages:</p>
+                        <div class="webhook-url glass">
+                            <code id="webhook-url">http://YOUR-IP:5000/webhook</code>
+                            <button class="btn btn-outline btn-s" onclick="copyWebhook()">Copy</button>
+                        </div>
+                        <p class="hint" style="margin-top: 1rem">For tunneling: <code>ngrok http 5000</code></p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
