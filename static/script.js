@@ -243,13 +243,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.style.animationDelay = `${i * 0.04}s`;
                 const initial = (c.name || 'V')[0].toUpperCase();
                 const tierClass = c.tier === 'VIP' ? 'tier-vip' : 'tier-lead';
+                const helpNeeded = c.awaiting_human === true;
+                
                 card.innerHTML = `
+                    ${helpNeeded ? '<div class="alert-badge pulse">🚨 NEEDS HELP</div>' : ''}
                     <div class="customer-avatar">${initial}</div>
                     <div class="customer-name">${c.name || 'Unknown'}</div>
                     <div class="customer-phone">📱 +${c.phone}</div>
                     <div class="customer-footer">
                         <span class="tier-badge ${tierClass}">${c.tier || 'Lead'}</span>
                         <span class="customer-last">${c.last_interaction || 'N/A'}</span>
+                        ${helpNeeded ? `<button class="btn btn-outline btn-xs" onclick="event.stopPropagation(); clearFlag('${c.phone}')" style="margin-left:auto; border-color:#ef4444; color:#ef4444; padding: 2px 5px; font-size: 0.6rem;">Clear</button>` : ''}
                     </div>
                 `;
                 card.addEventListener('click', () => openCustomer(c));
@@ -399,6 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.quick_messages && data.quick_messages.length) {
                 document.getElementById('quickmsg-input').value = data.quick_messages.join('\n');
             }
+            
+            // Load Team Managers
+            loadManagers();
         } catch {}
 
         // WhatsApp Status
@@ -453,6 +460,76 @@ document.addEventListener('DOMContentLoaded', () => {
         if (webhookEl) webhookEl.textContent = `${window.location.origin}/webhook`;
     };
 
+    window.loadManagers = async function() {
+        const list = document.getElementById('manager-list');
+        if (!list) return;
+        try {
+            const res = await fetch('/api/managers');
+            const data = await res.json();
+            const managers = data.managers || [];
+            
+            if (!managers.length) {
+                list.innerHTML = '<div class="empty-state" style="padding: 1rem; width: 100%;"><p style="font-size: 0.8rem;">No notification numbers set yet.</p></div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            managers.forEach(m => {
+                const tag = document.createElement('div');
+                tag.className = 'glass';
+                tag.style.padding = '8px 12px';
+                tag.style.borderRadius = '10px';
+                tag.style.display = 'flex';
+                tag.style.alignItems = 'center';
+                tag.style.gap = '10px';
+                tag.style.border = '1px solid var(--glass-border)';
+                tag.innerHTML = `
+                    <span style="font-size: 0.85rem; font-weight: 600;">${m.name}</span>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">+${m.phone}</span>
+                    <button onclick="removeManager('${m.phone}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size: 1.2rem; display: flex;">&times;</button>
+                `;
+                list.appendChild(tag);
+            });
+        } catch (err) { console.error('Managers load error:', err); }
+    };
+
+    window.addManager = async function() {
+        const nameEl = document.getElementById('manager-name');
+        const phoneEl = document.getElementById('manager-phone');
+        const name = nameEl.value.trim();
+        const phone = phoneEl.value.trim();
+        
+        if (!name || !phone) {
+            alert('Please enter both name and phone number.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/managers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone })
+            });
+            if (res.ok) {
+                nameEl.value = '';
+                phoneEl.value = '';
+                loadManagers();
+            }
+        } catch (err) { console.error('Add manager error:', err); }
+    };
+
+    window.removeManager = async function(phone) {
+        if (!confirm('Remove this number from notifications?')) return;
+        try {
+            const res = await fetch('/api/managers/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            if (res.ok) loadManagers();
+        } catch (err) { console.error('Remove manager error:', err); }
+    };
+
     window.saveAllSettings = async function() {
         const btn = document.getElementById('btn-save-all');
         btn.disabled = true;
@@ -487,6 +564,17 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = false;
             btn.textContent = '❌ Save Failed — Try Again';
         }
+    };
+
+    window.clearFlag = async function(phone) {
+        try {
+            const res = await fetch('/api/customers/flag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, flag: false })
+            });
+            if (res.ok) loadCustomers();
+        } catch (err) { console.error('Clear flag error:', err); }
     };
 
     window.copyWebhook = function() {

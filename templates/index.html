@@ -296,6 +296,29 @@
                         </div>
                     </div>
 
+                    <!-- Team Notifications -->
+                    <div class="card glass settings-full-width">
+                        <div class="card-header">
+                            <h2>👥 Team Notifications</h2>
+                            <span class="hint-tag">Who gets alerted when customers need a human?</span>
+                        </div>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Add the WhatsApp numbers of managers or employees who should receive a message when a customer asks for a person or the AI is confused.</p>
+                        
+                        <div id="manager-list" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1.5rem;">
+                            <!-- Numbers will be loaded here -->
+                            <div class="empty-state" style="padding: 1rem; width: 100%;">
+                                <p style="font-size: 0.8rem;">No notification numbers set yet.</p>
+                            </div>
+                        </div>
+
+                        <div class="chat-input-row" style="max-width: 600px;">
+                            <input type="text" id="manager-name" placeholder="Name (e.g. Zakaria)" style="flex: 1;">
+                            <input type="text" id="manager-phone" placeholder="Phone (e.g. 252...)" style="flex: 2;">
+                            <button class="btn btn-primary" onclick="addManager()">➕ Add Manager</button>
+                        </div>
+                        <p class="hint" style="margin-top: 1rem;">Note: Use full international format without the + sign (e.g. 25261XXXXXXX).</p>
+                    </div>
+
                     <!-- WhatsApp Connection Status -->
                     <div class="card glass">
                         <h2>📱 WhatsApp Connection</h2>

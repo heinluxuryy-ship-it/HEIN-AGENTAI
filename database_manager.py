@@ -11,24 +11,29 @@ logger = logging.getLogger(__name__)
 class HeinDatabaseManager:
     def __init__(self):
         self.uri = os.getenv("MONGODB_URI")
-        self.db_name = "hein_luxury_intelligence"
+        # Switch to the main business database
+        self.db_name = "hein_luxury"
         self.client = None
         self.db = None
         
         if self.uri:
             try:
-                # Use a fast 5-second timeout so it doesn't freeze Flask on boot
                 self.client = MongoClient(self.uri, serverSelectionTimeoutMS=5000)
                 # Force a connection test
                 self.client.admin.command('ping')
                 
                 self.db = self.client[self.db_name]
                 self._initialize_collections()
-                logger.info("Connected to HEIN MongoDB Memory.")
+                logger.info(f"Connected to HEIN MongoDB: {self.db_name}")
             except Exception as e:
-                logger.error(f"Failed to connect to MongoDB (Check Atlas IP Whitelist): {e}")
-                self.client = None
-                self.db = None
+                # Fallback to intelligence DB if main one fails (for dev safety)
+                logger.warning(f"Could not connect to {self.db_name}, trying fallback...")
+                try:
+                    self.db = self.client["hein_luxury_intelligence"]
+                    logger.info("Connected to HEIN Intelligence (Fallback).")
+                except:
+                    logger.error(f"Failed to connect to MongoDB: {e}")
+                    self.db = None
 
     def _initialize_collections(self):
         """Ensures index and base collections exist."""
@@ -36,6 +41,26 @@ class HeinDatabaseManager:
             self.db.customers.create_index("phone", unique=True)
             self.db.orders.create_index("order_id", unique=True)
             self.db.interactions.create_index([("phone", 1), ("timestamp", -1)])
+            # Collection for team members who receive alerts
+            self.db.managers.create_index("phone", unique=True)
+
+    # --- MANAGER / TEAM ALERTS ---
+
+    def add_manager(self, name, phone):
+        if self.db is None: return
+        self.db.managers.update_one(
+            {"phone": phone},
+            {"$set": {"name": name, "active": True}},
+            upsert=True
+        )
+
+    def remove_manager(self, phone):
+        if self.db is None: return
+        self.db.managers.delete_one({"phone": phone})
+
+    def get_managers(self):
+        if self.db is None: return []
+        return list(self.db.managers.find({"active": True}))
 
     # --- CUSTOMER MEMORY ---
 

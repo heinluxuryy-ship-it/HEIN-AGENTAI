@@ -85,33 +85,73 @@ class HeinAgent:
         return base_persona + language_block + quickmsg_block
 
     # ─── ERP Inventory Tool ──────────────────────────────────────────────────
-    def check_inventory(self, product_type: str, color: str = None, size: str = None):
-        """Query the ERP Inventory to check if a specific product is in stock. Use this whenever a customer asks about availability, colors, or sizes."""
+    def check_inventory(self, product_query: str):
+        """Query the ERP inventory to check if a product is in stock. Use this to find models, colors, and sizes. Search broadly by name or title."""
         if self.db_manager.db is None:
             return {"error": "Inventory ERP system is currently disconnected."}
 
-        query = {"type": {"$regex": product_type, "$options": "i"}}
-        if color:
-            query["color"] = {"$regex": color, "$options": "i"}
-        if size:
-            query["size"] = size
+        # Search broadly using regex across multiple fields
+        query = {
+            "$or": [
+                {"name": {"$regex": product_query, "$options": "i"}},
+                {"title": {"$regex": product_query, "$options": "i"}},
+                {"color": {"$regex": product_query, "$options": "i"}},
+                {"type": {"$regex": product_query, "$options": "i"}},
+            ]
+        }
 
         try:
-            results = list(self.db_manager.db.inventory.find(query, {"_id": 0}))
+            # Pointing to 'products' collection as per user's live ERP
+            results = list(self.db_manager.db.products.find(query, {"_id": 0}).limit(5))
             if not results:
                 return {
                     "status": "out_of_stock",
-                    "message": f"We currently do not have {color or ''} {product_type}{' in size ' + size if size else ''}. I can suggest alternatives or place a special order."
+                    "message": f"I couldn't find '{product_query}' in our live inventory. I can request the Director to check our back-stock for you."
                 }
 
             stock_list = []
             for item in results:
+                name = item.get('name') or item.get('title') or 'Product'
                 stock_list.append(
-                    f"{item.get('name', product_type)} | Size: {item.get('size', 'N/A')} | Color: {item.get('color', 'N/A')} | In Stock: {item.get('quantity', 0)}"
+                    f"{name} | Color: {item.get('color', 'N/A')} | Size/Specs: {item.get('size', 'N/A')} | Available: {item.get('quantity', 0)}"
                 )
             return {"status": "in_stock", "available_items": stock_list}
         except Exception as e:
-            return {"error": f"Failed to read inventory: {e}"}
+            logger.error(f"Inventory query error: {e}")
+            return {"error": "Failed to read inventory. Please try again."}
+
+    # ─── Team Alert Tool ──────────────────────────────────────────────────
+    def request_human_support(self, reason: str):
+        """Use this tool when a customer explicitly asks for a 'real person', 'director', or 'manager', or if you are completely unable to identify a product/color. This will alert the business owners."""
+        if not self.current_phone: return {"error": "No active session"}
+
+        managers = self.db_manager.get_managers()
+        if not managers:
+            return {"status": "flagged", "message": "The Director has been notified via the dashboard flag."}
+
+        # Tag the customer in DB
+        if self.db_manager.db is not None:
+            self.db_manager.db.customers.update_one(
+                {"phone": self.current_phone},
+                {"$set": {"awaiting_human": True, "handoff_reason": reason}}
+            )
+
+        # Notify via WhatsApp (Simulated/Relayed via wa_bridge)
+        # Note: In a real flow, we'd trigger a POST to wa_bridge /send for each manager
+        try:
+            import requests
+            bridge_url = f"http://127.0.0.1:{os.getenv('PORT', 5000)}/api/whatsapp/internal-alert"
+            payload = {
+                "managers": [m['phone'] for m in managers],
+                "customer": self.current_phone,
+                "reason": reason
+            }
+            # We call an internal Flask route that will handle the broadcast
+            requests.post(bridge_url, json=payload, timeout=5)
+        except:
+            pass
+
+        return {"status": "notified", "message": "Manager alert sent to all 24/7 notification numbers."}
 
     # ─── Sales Tool ──────────────────────────────────────────────────────────
     def register_sale(self, product_name: str, variant: str = None, price: float = 0, quantity: int = 1):
@@ -134,64 +174,55 @@ class HeinAgent:
             return {"error": "Google Tasks not connected"}
         return self.google_manager.create_task(title, notes)
 
-    # ─── Research Tool ───────────────────────────────────────────────────────
-    def perform_market_research(self, query: str):
-        """Get real-time insights on luxury market trends from the web."""
-        try:
-            from duckduckgo_search import DDGS
-            with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=3))
-                if not results:
-                    return {"result": "No data found for the query."}
-                summaries = [f"Source: {r.get('href')} | Info: {r.get('body')}" for r in results]
-                return {"trend_data": summaries, "region": "Global"}
-        except ImportError:
-            return {"error": "Research module offline."}
-        except Exception as e:
-            logger.error(f"Search error: {e}")
-            return {"error": "Failed to look up information."}
-
     # ─── Message Processing ──────────────────────────────────────────────────
-    def process_message(self, user_input, phone_number):
-        """Processes message via OpenAI or Gemini with a dynamically loaded system prompt."""
+    def process_message(self, user_input, phone_number, image_base64=None):
+        """Processes message + optional image using Gemini 1.5 Flash."""
         self.current_phone = phone_number
         customer = self.db_manager.get_or_create_customer(phone_number)
-        self.db_manager.log_interaction(phone_number, user_input, "inbound")
+        
+        # Log content
+        log_msg = user_input if not image_base64 else f"[IMAGE] {user_input}"
+        self.db_manager.log_interaction(phone_number, log_msg, "inbound")
 
         if self.model_type == "gemini":
-            return self._process_gemini(user_input, customer)
+            return self._process_gemini(user_input, customer, image_base64)
         else:
+            # Fallback for OpenAI (Text only for now)
             return self._process_openai(user_input, customer)
 
-    def _process_gemini(self, user_input, customer):
-        """Native Gemini Processing with dynamic system prompt."""
+    def _process_gemini(self, user_input, customer, image_base64=None):
+        """Multimodal Gemini Processing (Vision + Tools)."""
         system_prompt = self._build_system_prompt()
         try:
-            if not hasattr(self, 'available_gemini_model'):
-                available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                if not available:
-                    raise Exception("No Gemini models found on this account.")
-                flash_models = [m for m in available if 'flash' in m.lower()]
-                self.available_gemini_model = flash_models[0] if flash_models else available[0]
-                logger.info(f"Auto-selected Gemini Model: {self.available_gemini_model}")
-
+            # Always use 1.5 Flash for vision + performance
             model = genai.GenerativeModel(
-                model_name=self.available_gemini_model,
+                model_name="gemini-1.5-flash",
                 tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
-                       self.perform_market_research, self.check_inventory],
+                       self.check_inventory, self.request_human_support],
                 system_instruction=system_prompt
             )
+
+            # Build multimodal prompt
+            prompt_parts = []
+            if image_base64:
+                prompt_parts.append({
+                    "mime_type": "image/jpeg",
+                    "data": image_base64
+                })
+            
+            prefs_json = json.dumps(customer.get("preferences", {}))
+            prompt_parts.append(f"Customer Profile: {prefs_json}\nMessage: {user_input}")
+
+            chat = model.start_chat(enable_automatic_function_calling=True)
+            response = chat.send_message(prompt_parts)
+
+            ai_reply = response.text
+            self.db_manager.log_interaction(self.current_phone, ai_reply, "outbound")
+            return ai_reply
+
         except Exception as e:
-            logger.error(f"Gemini Auto-Discovery failed: {e}")
-            return "AI Configuration Error. Please check your Gemini API credits/region."
-
-        chat = model.start_chat(enable_automatic_function_calling=True)
-        prefs_json = json.dumps(customer.get("preferences", {}))
-        response = chat.send_message(f"Customer Profile: {prefs_json}\nMessage: {user_input}")
-
-        ai_reply = response.text
-        self.db_manager.log_interaction(self.current_phone, ai_reply, "outbound")
-        return ai_reply
+            logger.error(f"Gemini Vision error: {e}")
+            return "I apologize, I am currently unable to process images. Please describe the item in text!"
 
     def _process_openai(self, user_input, customer):
         """Standard OpenAI Tool Calling Flow with dynamic system prompt."""

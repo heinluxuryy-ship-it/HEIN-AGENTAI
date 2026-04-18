@@ -90,48 +90,62 @@ async function startWhatsApp() {
                 // Extract sender phone number
                 const sender = jid.replace('@s.whatsapp.net', '').replace('@g.us', '');
 
-                // Extract text from different message types
-                const text = msg.message.conversation ||
+                // Extract content
+                let text = msg.message.conversation ||
                              msg.message.extendedTextMessage?.text ||
                              msg.message.imageMessage?.caption ||
                              msg.message.videoMessage?.caption ||
                              '';
 
-                if (!text) {
-                    console.log(`[BRIDGE] Non-text message from ${sender}, skipping for now.`);
+                let imageBase64 = null;
+                let messageType = 'text';
+
+                // Handle IMAGES
+                if (msg.message.imageMessage) {
+                    messageType = 'image';
+                    console.log(`[BRIDGE] 📸 Image received from ${sender}. Downloading...`);
+                    try {
+                        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+                        const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+                        let buffer = Buffer.from([]);
+                        for await(const chunk of stream) {
+                            buffer = Buffer.concat([buffer, chunk]);
+                        }
+                        imageBase64 = buffer.toString('base64');
+                        console.log(`[BRIDGE] Image downloaded and converted to Base64.`);
+                    } catch (err) {
+                        console.error(`[BRIDGE] Failed to download image: ${err.message}`);
+                    }
+                }
+
+                if (!text && !imageBase64) {
+                    console.log(`[BRIDGE] Non-actionable message from ${sender}, skipping.`);
                     continue;
                 }
 
-                console.log(`[BRIDGE] 📩 INCOMING from ${sender}: "${text.substring(0, 80)}"`);
+                console.log(`[BRIDGE] 📩 INCOMING [${messageType}] from ${sender}: "${text.substring(0, 80)}"`);
 
                 // Forward to Python
                 const payload = {
                     sender: sender,
                     text: text,
+                    type: messageType,
+                    image: imageBase64,
                     timestamp: Math.floor(Date.now() / 1000)
                 };
 
                 try {
-                    console.log(`[BRIDGE] Forwarding to Python...`);
+                    console.log(`[BRIDGE] Forwarding to Python Hub...`);
                     const response = await axios.post(PYTHON_WEBHOOK_URL, payload, {
-                        timeout: 90000, // 90 second timeout for AI generation
+                        timeout: 120000, // 2 min timeout for Vision processing
                         headers: { 'Content-Type': 'application/json' }
                     });
                     console.log(`[BRIDGE] ✅ Python responded: ${JSON.stringify(response.data)}`);
                 } catch (err) {
                     console.error(`[BRIDGE] ❌ Relay to Python FAILED: ${err.message}`);
-                    if (err.response) {
-                        console.error(`[BRIDGE] Python status ${err.response.status}: ${JSON.stringify(err.response.data)}`);
-                    }
-
-                    // Send fallback reply directly
-                    try {
-                        await sock.sendMessage(jid, {
-                            text: 'Thank you for your message. Our team will respond shortly.'
-                        });
-                        console.log('[BRIDGE] Sent fallback message.');
-                    } catch (fbErr) {
-                        console.error('[BRIDGE] Fallback send also failed:', fbErr.message);
+                    // Fallback
+                    if (!msg.key.fromMe) {
+                        await sock.sendMessage(jid, { text: 'I received your message but my brain is currently busy. One moment please!' });
                     }
                 }
             }

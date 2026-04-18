@@ -276,27 +276,29 @@ def webhook_verify():
 
 @app.route('/webhook/wa_bridge', methods=['POST'])
 def proxy_wa_bridge():
-    """Receives payloads from the local wa_bridge.js proxy"""
+    """Receives payloads from the local wa_bridge.js proxy (Supports Images)"""
     data = request.json
-    logger.info(f"[BRIDGE-WEBHOOK] Received payload: {data}")
+    logger.info(f"[BRIDGE-WEBHOOK] Received payload: {data.get('type')} from {data.get('sender')}")
     
     try:
         sender = data.get("sender", "")
         text = data.get("text", "")
+        msg_type = data.get("type", "text")
+        image_base64 = data.get("image") # New: Multimodal image data
         
-        if not sender or not text:
-            logger.warning(f"[BRIDGE-WEBHOOK] Missing sender or text, ignoring. sender='{sender}', text='{text}'")
+        if not sender or (not text and not image_base64):
+            logger.warning(f"[BRIDGE-WEBHOOK] Missing content, ignoring. sender='{sender}'")
             return jsonify({"status": "ignored"}), 200
         
-        add_log(f"📱 Bridge WA from {sender}: {text[:60]}", "whatsapp")
-        logger.info(f"[BRIDGE-WEBHOOK] Step 1: Processing message from {sender}")
+        log_label = f"📱 Bridge {msg_type.upper()} from {sender}: {text[:60]}"
+        add_log(log_label, "whatsapp")
         
-        # Step 2: Generate AI reply
+        # Step 2: Generate AI reply (now vision-capable)
         try:
-            reply = hein_engine.process_message(text, sender)
-            logger.info(f"[BRIDGE-WEBHOOK] Step 2: AI generated reply: {reply[:100]}...")
+            reply = hein_engine.process_message(text, sender, image_base64=image_base64)
+            logger.info(f"[BRIDGE-WEBHOOK] AI generated reply.")
         except Exception as ai_err:
-            logger.error(f"[BRIDGE-WEBHOOK] Step 2 FAILED - AI generation error: {ai_err}")
+            logger.error(f"[BRIDGE-WEBHOOK] AI generation error: {ai_err}")
             reply = "Thank you for your message. Our team will get back to you shortly."
         
         add_log(f"🤖 AI Reply to {sender}: {reply[:60]}...", "core")
@@ -304,17 +306,37 @@ def proxy_wa_bridge():
         # Step 3: Send reply via bridge
         try:
             result = wa_service.send_message(sender, reply)
-            logger.info(f"[BRIDGE-WEBHOOK] Step 3: Send result: {result}")
             add_log(f"✅ Reply sent to {sender}", "core")
         except Exception as send_err:
-            logger.error(f"[BRIDGE-WEBHOOK] Step 3 FAILED - Send error: {send_err}")
-            add_log(f"❌ Failed to send reply to {sender}: {send_err}", "error")
+            logger.error(f"[BRIDGE-WEBHOOK] Send error: {send_err}")
+            add_log(f"❌ Failed to reply to {sender}: {send_err}", "error")
         
         return jsonify({"status": "ok", "reply_sent": True})
     except Exception as e:
         logger.error(f"[BRIDGE-WEBHOOK] FATAL ERROR: {e}", exc_info=True)
         add_log(f"Bridge webhook error: {e}", "error")
         return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/api/whatsapp/internal-alert', methods=['POST'])
+def internal_alert():
+    """Trigger WhatsApp notifications to all recorded manager numbers."""
+    data = request.json
+    managers = data.get('managers', [])
+    customer = data.get('customer', 'Unknown')
+    reason = data.get('reason', 'Manual review needed')
+
+    alert_msg = f"🚨 *HEIN AI ALERT*\n\n*Issue:* {reason}\n*Customer:* +{customer}\n*Action:* Please check the HEIN Dashboard to take over this conversation."
+
+    count = 0
+    for manager_phone in managers:
+        try:
+            wa_service.send_message(manager_phone, alert_msg)
+            count += 1
+        except:
+            continue
+    
+    add_log(f"📣 Broadcasted alert to {count} managers.", "system")
+    return jsonify({"status": "alerts_sent", "count": count})
 
 @app.route('/webhook', methods=['POST'])
 def webhook_receive():
@@ -423,11 +445,66 @@ def get_inventory():
         if search:
             query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
-                {"type": {"$regex": search, "$options": "i"}},
+                {"title": {"$regex": search, "$options": "i"}}, # Added title (common in ERPs)
                 {"color": {"$regex": search, "$options": "i"}},
+                {"type": {"$regex": search, "$options": "i"}},
             ]
-        items = list(db.inventory.find(query, {"_id": 0}).limit(200))
+        # Switching to 'products' collection as per user's live DB
+        items = list(db.products.find(query, {"_id": 0}).limit(200))
         return jsonify({"items": items, "total": len(items)})
+    except Exception as e:
+        return jsonify({"error": str(e), "items": []}), 500
+
+# ========================================================
+#  API — TEAM / MANAGER ALERTS
+# ========================================================
+
+@app.route('/api/managers', methods=['GET'])
+def get_managers():
+    """Returns the list of enabled manager numbers for alerts."""
+    managers = hein_engine.db_manager.get_managers()
+    # Serialize for JSON
+    for m in managers: m.pop('_id', None)
+    return jsonify({"managers": managers})
+
+@app.route('/api/managers', methods=['POST'])
+def add_manager():
+    """Adds a new manager number to the alert list."""
+    data = request.json
+    name = data.get('name')
+    phone = data.get('phone')
+    if not name or not phone:
+        return jsonify({"error": "Name and Phone required"}), 400
+    
+    # Clean phone (remove +, spaces)
+    phone = ''.join(filter(str.isdigit, phone))
+    hein_engine.db_manager.add_manager(name, phone)
+    add_log(f"New manager added: {name} (+{phone})", "core")
+    return jsonify({"status": "added"})
+
+@app.route('/api/managers/delete', methods=['POST'])
+def remove_manager():
+    """Removes a manager number from alerts."""
+    data = request.json
+    phone = data.get('phone')
+    if not phone:
+        return jsonify({"error": "Phone required"}), 400
+    
+    hein_engine.db_manager.remove_manager(phone)
+    add_log(f"Manager removed (+{phone})", "core")
+    return jsonify({"status": "removed"})
+
+@app.route('/api/customers/flag', methods=['POST'])
+def flag_customer():
+    """Manually flag/unflag a customer for intervention."""
+    db = hein_engine.db_manager.db
+    if db is None: return jsonify({"error": "No DB"}), 503
+    data = request.json
+    phone = data.get('phone')
+    flag = data.get('flag', True)
+    
+    db.customers.update_one({"phone": phone}, {"$set": {"awaiting_human": flag}})
+    return jsonify({"status": "updated"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
