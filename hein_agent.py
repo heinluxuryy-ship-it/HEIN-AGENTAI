@@ -195,9 +195,9 @@ class HeinAgent:
         """Multimodal Gemini Processing (Vision + Tools)."""
         system_prompt = self._build_system_prompt()
         try:
-            # Upgrade to latest flash for stability
+            # Use stable model name
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash-latest",
+                model_name="gemini-1.5-flash",
                 tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
                        self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
                 system_instruction=system_prompt
@@ -223,7 +223,7 @@ class HeinAgent:
                 logger.warning("Vision failed, retrying text-only...")
                 try:
                     model_text = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash-latest",
+                        model_name="gemini-1.5-flash",
                         tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
                                self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
                         system_instruction=system_prompt
@@ -234,7 +234,8 @@ class HeinAgent:
                     ai_reply = response.text
                     self.db_manager.log_interaction(self.current_phone, ai_reply, "outbound")
                     return ai_reply
-                except:
+                except Exception as e2:
+                    logger.error(f"Gemini fallback failure: {e2}")
                     return "Our concierge team is currently prioritizing private viewings. Our Director will assist you personally in just a moment."
             
             return "Thank you for reaching out to HEIN Luxury. We are experiencing high volume. Our Director will assist you personally in just a moment."
