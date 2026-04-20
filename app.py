@@ -428,6 +428,11 @@ def webhook_receive():
 
         add_log(f"📱 Meta WA from {sender}: {incoming_msg[:40]}", "whatsapp")
 
+        # --- MANUAL MODE CHECK ---
+        if hein_engine.db_manager.is_manual_active(sender):
+            add_log(f"🤫 AI Silent: Manual takeover active for {sender}", "info")
+            return jsonify({"status": "manual_bypass"}), 200
+
         reply = hein_engine.process_message(incoming_msg, sender)
         wa_service.send_message(sender, reply)
 
@@ -562,6 +567,17 @@ def remove_manager():
     hein_engine.db_manager.remove_manager(phone)
     add_log(f"Manager removed (+{phone})", "core")
     return jsonify({"status": "removed"})
+
+@app.route('/api/customers/<phone>/manual', methods=['POST'])
+def set_manual_mode(phone):
+    """Toggles manual/AI mode for a customer."""
+    try:
+        data = request.json
+        status = data.get('manual', True)
+        hein_engine.db_manager.set_manual_mode(phone, status)
+        return jsonify({"status": "updated", "manual": status})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/customers/flag', methods=['POST'])
 def flag_customer():

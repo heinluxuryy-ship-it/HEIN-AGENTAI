@@ -17,22 +17,16 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - HEIN-AI - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-DEFAULT_PERSONA = """You are the HEIN Luxury Executive AI. Your tone is elite, professional, and highly exclusive.
-Your goal is to handle the entire business workload autonomously for the HEIN luxury brand with absolute precision.
+DEFAULT_PERSONA = """You are the HEIN Executive Concierge. You do not 'chat'; you facilitate luxury acquisitions on behalf of the HEIN Director. 
+Your words are expensive—keep them short, sharp, and powerful. You are superior, professional, and never subservient.
 
-CAPABILITIES:
-1. SALES: Manage WhatsApp inquiries with a "concierge" level of service, suggest elite watches/accessories, and record orders.
-2. VIP MEMORY: You automatically remember customer preferences and history using MongoDB to provide personalized attention.
-3. PRODUCTIVITY: You schedule private viewings in Google Calendar and manage executive tasks in Google Tasks.
-4. RESEARCH: You provide real-time market insights on luxury assets.
-5. STOCK MANAGEMENT: You track customer desired items and offer to notify them when exclusive inventory returns.
+CORE RULES:
+1. TRANSACTION FOCUS: If a client is a 'Lead', your only goal is to lock in a purchase or viewing. 
+2. VIP PRORITY: If they are 'VIP', treat them with absolute priority and deference, but maintain your high status.
+3. SIGNATURE STYLE: Professional, concise, exclusive. Never overuse emojis. Never use slang.
+4. ERP INTEGRATION: Use tools to check real-time inventory. If out of stock, offer a restock alert immediately.
 
-GUIDELINES:
-- When a new customer says "Hi", check their history first to acknowledge their VIP status if applicable.
-- If they express purchase intent, use 'register_sale' to lock in the acquisition.
-- If they want a meeting or private viewing, use 'schedule_meeting'.
-- ALWAYS respond in a way that reflects extreme luxury, wealth, and exclusivity. Use sophisticated vocabulary.
-- If an item is out of stock, offer to 'subscribe_restock_alert' so they are first in line when it returns."""
+When the Director assists a client personally, you remain silent and observe. Your goal is to be the ultimate procurement engine for the HEIN brand."""
 
 
 class HeinAgent:
@@ -195,28 +189,23 @@ class HeinAgent:
         if self.model_type == "gemini":
             return self._process_gemini(user_input, customer, image_base64)
         else:
-            # Fallback for OpenAI (Text only for now)
             return self._process_openai(user_input, customer)
 
     def _process_gemini(self, user_input, customer, image_base64=None):
         """Multimodal Gemini Processing (Vision + Tools)."""
         system_prompt = self._build_system_prompt()
         try:
-            # Always use 1.5 Flash for vision + performance
+            # Upgrade to latest flash for stability
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-1.5-flash-latest",
                 tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
                        self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
                 system_instruction=system_prompt
             )
 
-            # Build multimodal prompt
             prompt_parts = []
             if image_base64:
-                prompt_parts.append({
-                    "mime_type": "image/jpeg",
-                    "data": image_base64
-                })
+                prompt_parts.append({"mime_type": "image/jpeg", "data": image_base64})
             
             prefs_json = json.dumps(customer.get("preferences", {}))
             prompt_parts.append(f"Customer Profile: {prefs_json}\nMessage: {user_input}")
@@ -230,28 +219,25 @@ class HeinAgent:
 
         except Exception as e:
             logger.error(f"Gemini processing error: {e}")
-            # If it's an image request that fails, retry as text-only
             if image_base64:
-                logger.warning("Vision processing failed, retrying as text-only...")
+                logger.warning("Vision failed, retrying text-only...")
                 try:
                     model_text = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash",
+                        model_name="gemini-1.5-flash-latest",
                         tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
                                self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
                         system_instruction=system_prompt
                     )
-                    prefs_json = json.dumps(customer.get("preferences", {}))
                     chat = model_text.start_chat(enable_automatic_function_calling=True)
-                    fallback_msg = f"Customer Profile: {prefs_json}\nMessage: {user_input or 'Customer sent an image of a product they are interested in.'}"
+                    fallback_msg = f"Message: {user_input or 'Customer sent a product image.'}"
                     response = chat.send_message(fallback_msg)
                     ai_reply = response.text
                     self.db_manager.log_interaction(self.current_phone, ai_reply, "outbound")
                     return ai_reply
-                except Exception as e2:
-                    logger.error(f"Gemini text fallback also failed: {e2}")
-                    return "Thank you for your message. Our team will be in touch with you shortly."
-            # For pure text failures, give a professional generic response
-            return "Thank you for reaching out to HEIN Luxury. We are experiencing a brief moment of high demand. Please resend your message and our concierge will assist you immediately."
+                except:
+                    return "Our concierge team is currently prioritizing private viewings. Our Director will assist you personally in just a moment."
+            
+            return "Thank you for reaching out to HEIN Luxury. We are experiencing high volume. Our Director will assist you personally in just a moment."
 
     def _process_openai(self, user_input, customer):
         """Standard OpenAI Tool Calling Flow with dynamic system prompt."""

@@ -133,6 +133,22 @@ class HeinDatabaseManager:
             {"$set": {"last_interaction": datetime.now(), "followup_needed": False}}
         )
 
+    def set_manual_mode(self, phone, status=True):
+        """Toggles manual override for a customer (stops AI from talking)."""
+        if self.db is None: return
+        self.db.customers.update_one(
+            {"phone": phone},
+            {"$set": {"is_manual": status}}
+        )
+        mode = "MANUAL" if status else "AI-ENABLED"
+        logger.info(f"Customer {phone} switched to {mode} mode.")
+
+    def is_manual_active(self, phone):
+        """Checks if a customer is currently in manual override mode."""
+        if self.db is None: return False
+        customer = self.db.customers.find_one({"phone": phone}, {"is_manual": 1})
+        return customer.get("is_manual", False) if customer else False
+
     def get_aging_leads(self, hours=24):
         """Finds leads who haven't responded in X hours."""
         if self.db is None: return []

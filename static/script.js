@@ -288,7 +288,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-size:0.95rem;margin-top:4px">${customer.last_interaction || 'N/A'}</div>
                 </div>
             </div>
-            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+            <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px;">
+                <div id="takeover-status-bar" style="width: 100%; margin-bottom: 8px; padding: 10px; border-radius: 10px; background: ${customer.is_manual ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.1)'}; border: 1px solid ${customer.is_manual ? '#ef4444' : '#10b981'}; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.85rem; font-weight: 500;">
+                        ${customer.is_manual ? '🚨 <span style="color:#ef4444">AI SILENCED (Manual Mode)</span>' : '✅ <span style="color:#10b981">AI ASSISTING</span>'}
+                    </div>
+                    <button class="btn ${customer.is_manual ? 'btn-primary' : 'btn-outline'} btn-xs" 
+                            onclick="toggleManualMode('${customer.phone}', ${!customer.is_manual})" 
+                            style="margin:0; min-width: 110px;">
+                        ${customer.is_manual ? '🏠 Release to AI' : '🛑 Take Over'}
+                    </button>
+                </div>
                 <button class="btn btn-primary btn-s" onclick="triggerManualFollowup('${customer.phone}')" id="btn-modal-followup">
                     🪄 Magic Follow-up
                 </button>
@@ -592,6 +602,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ===================== AUTOMATION WRAPPERS =====================
+    window.toggleManualMode = async function(phone, status) {
+        const bar = document.getElementById('takeover-status-bar');
+        try {
+            const res = await fetch(`/api/customers/${phone}/manual`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ manual: status })
+            });
+            const data = await res.json();
+            if (data.status === 'updated') {
+                // Refresh modal content or update bar manually
+                const btnText = status ? '🏠 Release to AI' : '🛑 Take Over';
+                const statusHtml = status ? '🚨 <span style="color:#ef4444">AI SILENCED (Manual Mode)</span>' : '✅ <span style="color:#10b981">AI ASSISTING</span>';
+                
+                bar.style.background = status ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.1)';
+                bar.style.borderColor = status ? '#ef4444' : '#10b981';
+                bar.innerHTML = `
+                    <div style="font-size: 0.85rem; font-weight: 500;">${statusHtml}</div>
+                    <button class="btn ${status ? 'btn-primary' : 'btn-outline'} btn-xs" 
+                            onclick="toggleManualMode('${phone}', ${!status})" 
+                            style="margin:0; min-width: 110px;">
+                        ${btnText}
+                    </button>
+                `;
+                
+                // Refresh customer grid in background
+                loadCustomers();
+                addLog(`Manual takeover ${status ? 'ACTIVATED' : 'DEACTIVATED'} for +${phone}`, status ? 'info' : 'core');
+            }
+        } catch (err) {
+            console.error("Takeover failed", err);
+        }
+    };
+
     window.triggerManualFollowup = async function(phone) {
         const btn = document.getElementById('btn-modal-followup');
         if (!btn) return;
