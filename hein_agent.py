@@ -229,8 +229,29 @@ class HeinAgent:
             return ai_reply
 
         except Exception as e:
-            logger.error(f"Gemini Vision error: {e}")
-            return "I apologize, I am currently unable to process images. Please describe the item in text!"
+            logger.error(f"Gemini processing error: {e}")
+            # If it's an image request that fails, retry as text-only
+            if image_base64:
+                logger.warning("Vision processing failed, retrying as text-only...")
+                try:
+                    model_text = genai.GenerativeModel(
+                        model_name="gemini-1.5-flash",
+                        tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
+                               self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
+                        system_instruction=system_prompt
+                    )
+                    prefs_json = json.dumps(customer.get("preferences", {}))
+                    chat = model_text.start_chat(enable_automatic_function_calling=True)
+                    fallback_msg = f"Customer Profile: {prefs_json}\nMessage: {user_input or 'Customer sent an image of a product they are interested in.'}"
+                    response = chat.send_message(fallback_msg)
+                    ai_reply = response.text
+                    self.db_manager.log_interaction(self.current_phone, ai_reply, "outbound")
+                    return ai_reply
+                except Exception as e2:
+                    logger.error(f"Gemini text fallback also failed: {e2}")
+                    return "Thank you for your message. Our team will be in touch with you shortly."
+            # For pure text failures, give a professional generic response
+            return "Thank you for reaching out to HEIN Luxury. We are experiencing a brief moment of high demand. Please resend your message and our concierge will assist you immediately."
 
     def _process_openai(self, user_input, customer):
         """Standard OpenAI Tool Calling Flow with dynamic system prompt."""
