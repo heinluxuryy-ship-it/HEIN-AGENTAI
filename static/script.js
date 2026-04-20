@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el('stat-vip')) el('stat-vip').textContent = data.vip_count || 0;
             if (el('stat-leads')) el('stat-leads').textContent = data.lead_count || 0;
             if (el('stat-orders')) el('stat-orders').textContent = data.orders_ready || 0;
+            if (el('stat-revenue')) el('stat-revenue').textContent = `$${(data.projected_revenue || 0).toLocaleString()}`;
             if (el('header-traffic')) el('header-traffic').textContent = data.today_interactions || 0;
             if (el('badge-customers')) el('badge-customers').textContent = data.total_customers || 0;
 
@@ -286,6 +287,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-size:0.7rem;color:var(--text-secondary)">LAST SEEN</div>
                     <div style="font-size:0.95rem;margin-top:4px">${customer.last_interaction || 'N/A'}</div>
                 </div>
+            </div>
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-primary btn-s" onclick="triggerManualFollowup('${customer.phone}')" id="btn-modal-followup">
+                    🪄 Magic Follow-up
+                </button>
+                <button class="btn btn-outline btn-s" onclick="window.open('https://wa.me/${customer.phone}', '_blank')">
+                    💬 Chat on WhatsApp
+                </button>
             </div>
             <h4 style="margin-bottom:1rem;font-size:0.9rem;color:var(--text-secondary)">CONVERSATION HISTORY</h4>
             <div id="modal-interactions">⏳ Loading...</div>
@@ -580,6 +589,63 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyWebhook = function() {
         const url = document.getElementById('webhook-url').textContent;
         navigator.clipboard.writeText(url).then(() => alert('Webhook URL copied!'));
+    };
+
+    // ===================== AUTOMATION WRAPPERS =====================
+    window.triggerManualFollowup = async function(phone) {
+        const btn = document.getElementById('btn-modal-followup');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.textContent = '⏳ Crafting elite message...';
+        try {
+            const res = await fetch(`/api/customers/${phone}/followup`, { method: 'POST' });
+            const data = await res.json();
+            btn.textContent = '✅ Elite Follow-up Sent';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '🪄 Magic Follow-up';
+            }, 3000);
+            // Refresh history
+            openCustomer({phone}); 
+        } catch {
+            btn.disabled = false;
+            btn.textContent = '❌ Failed to send';
+        }
+    };
+
+    window.runFollowupCycle = async function() {
+        if (!confirm('Run automated AI follow-up cycle for all aging leads?')) return;
+        const btn = document.getElementById('btn-run-followups');
+        btn.disabled = true;
+        btn.textContent = '🪄 AI Running...';
+        try {
+            const res = await fetch('/api/automation/run-followups', { method: 'POST' });
+            const data = await res.json();
+            alert(`Automation complete. Sent ${data.count} personalized follow-ups.`);
+            fetchActivity();
+        } catch {} finally {
+            btn.disabled = false;
+            btn.textContent = '🪄 Run Follow-ups';
+        }
+    };
+
+    window.runRestockAlerts = async function() {
+        const btn = document.getElementById('btn-run-restock');
+        btn.disabled = true;
+        btn.textContent = '🔔 Checking restocks...';
+        try {
+            const res = await fetch('/api/automation/run-restock-alerts', { method: 'POST' });
+            const data = await res.json();
+            if (data.count > 0) {
+                alert(`Success: Notified ${data.count} clients about replenished items!`);
+            } else {
+                alert('No restocked items found for waitlisted clients.');
+            }
+            fetchActivity();
+        } catch {} finally {
+            btn.disabled = false;
+            btn.textContent = '🔔 Restock Alerts';
+        }
     };
 
     // ===================== INIT =====================

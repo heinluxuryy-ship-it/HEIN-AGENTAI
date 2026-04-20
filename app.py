@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from hein_agent import HeinAgent
 from whatsapp_service import WhatsAppService
+import auto_followup
 
 load_dotenv()
 
@@ -25,9 +26,11 @@ log_lock = Lock()
 def add_log(msg, log_type="info"):
     with log_lock:
         timestamp = datetime.now().strftime('%H:%M:%S')
+        # Ensure message is string and ASCII-safe for some cloud consoles
+        safe_msg = str(msg).encode('ascii', 'ignore').decode('ascii')
         dashboard_logs.insert(0, {
             "time": timestamp,
-            "message": msg,
+            "message": safe_msg,
             "type": log_type
         })
         if len(dashboard_logs) > 100:
@@ -90,6 +93,7 @@ def get_stats():
             "vip_count": vip_count,
             "lead_count": lead_count,
             "today_interactions": today_interactions,
+            "projected_revenue": hein_engine.db_manager.get_projected_revenue(),
             "whatsapp": wa_service.get_status(),
             "memory_ok": True
         })
@@ -338,6 +342,71 @@ def internal_alert():
     add_log(f"📣 Broadcasted alert to {count} managers.", "system")
     return jsonify({"status": "alerts_sent", "count": count})
 
+# ========================================================
+#  API — AUTOMATION & FOLLOW-UPS
+# ========================================================
+
+@app.route('/api/customers/<phone>/followup', methods=['POST'])
+def manual_followup(phone):
+    """Triggers a personalized AI follow-up for a specific customer."""
+    try:
+        db = hein_engine.db_manager.db
+        customer = db.customers.find_one({"phone": phone})
+        if not customer:
+            return jsonify({"error": "Customer not found"}), 404
+        
+        name = customer.get("name", "Valued Client")
+        add_log(f"Manual follow-up triggered for {name} (+{phone})", "core")
+        
+        msg = auto_followup.generate_followup(hein_engine, phone, name)
+        wa_service.send_message(phone, msg)
+        
+        # Update interaction time
+        db.customers.update_one({"phone": phone}, {"$set": {"last_interaction": datetime.now()}})
+        
+        return jsonify({"status": "sent", "message": msg})
+    except Exception as e:
+        logger.error(f"Manual followup error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/automation/run-followups', methods=['POST'])
+def run_followups():
+    """Triggers the automated cycle for all aging leads."""
+    try:
+        count = auto_followup.run_followup_cycle(hein_engine, wa_service)
+        add_log(f"Automation: Sent {count} personalized follow-ups.", "core")
+        return jsonify({"status": "complete", "count": count})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/automation/run-restock-alerts', methods=['POST'])
+def run_restock_alerts():
+    """Checks the wishlist and notifies everyone whose items are back in stock."""
+    try:
+        candidates = hein_engine.db_manager.get_restock_candidates()
+        if not candidates:
+            return jsonify({"status": "no_restocks", "count": 0})
+        
+        count = 0
+        for item in candidates:
+            phone = item['phone']
+            product = item['actual_name']
+            
+            prompt = (
+                f"Notify user {phone} that the item they was waiting for, '{product}', is now back in stock and ready for procurement. "
+                "Keep it elite, exclusive, and exciting. Tell them they are being notified before the general public."
+            )
+            msg = hein_engine.process_message(prompt, phone)
+            wa_service.send_message(phone, msg)
+            
+            hein_engine.db_manager.mark_wishlist_notified(phone, item['product_name'])
+            count += 1
+            
+        add_log(f"Restock Logic: Notified {count} exclusive clients.", "core")
+        return jsonify({"status": "sent", "count": count})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/webhook', methods=['POST'])
 def webhook_receive():
     """Production WhatsApp webhook entry point."""
@@ -497,14 +566,15 @@ def remove_manager():
 @app.route('/api/customers/flag', methods=['POST'])
 def flag_customer():
     """Manually flag/unflag a customer for intervention."""
-    db = hein_engine.db_manager.db
-    if db is None: return jsonify({"error": "No DB"}), 503
-    data = request.json
-    phone = data.get('phone')
-    flag = data.get('flag', True)
-    
-    db.customers.update_one({"phone": phone}, {"$set": {"awaiting_human": flag}})
-    return jsonify({"status": "updated"})
+    try:
+        db = hein_engine.db_manager.db
+        if db is None: return jsonify({"error": "No DB"}), 503
+        data = request.json
+        phone = data.get('phone')
+        flag = data.get('flag', True)
+        
+        db.customers.update_one({"phone": phone}, {"$set": {"awaiting_human": flag}})
+        return jsonify({"status": "updated"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -563,8 +633,14 @@ if __name__ == "__main__":
     print("=" * 55)
     print(f"   Dashboard:  http://127.0.0.1:5000")
     print(f"   WhatsApp:   http://127.0.0.1:5000/webhook")
-    safe_label = wa_service.get_status()['label'].encode('ascii', 'ignore').decode('ascii')
-    print(f"   WA Status:  {safe_label}")
+    # ASCII Clean for WA Status
+    try:
+        wa_label = wa_service.get_status()['label']
+        safe_label = str(wa_label).encode('ascii', 'ignore').decode('ascii')
+        print(f"   WA Status:  {safe_label}")
+    except:
+        print("   WA Status:  [UNKNOWN]")
+        
     if hein_engine.db_manager.db is not None:
         print(f"   MongoDB:    [CONNECTED]")
     else:

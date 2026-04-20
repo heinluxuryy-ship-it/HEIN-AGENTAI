@@ -100,10 +100,10 @@
                         </div>
                     </div>
                     <div class="stat-card glass">
-                        <div class="stat-icon">📦</div>
+                        <div class="stat-icon">💰</div>
                         <div class="stat-info">
-                            <div class="stat-label">Pending Orders</div>
-                            <div class="stat-value" id="stat-orders">0</div>
+                            <div class="stat-label">Projected Revenue</div>
+                            <div class="stat-value" id="stat-revenue">$0</div>
                         </div>
                     </div>
                 </div>
@@ -152,6 +152,12 @@
                         <p class="subtitle">All contacts stored in HEIN MongoDB Memory.</p>
                     </div>
                     <div class="header-right">
+                        <button class="btn btn-outline btn-s" id="btn-run-followups" onclick="runFollowupCycle()" title="Run AI follow-ups for all aging leads">
+                            🪄 Run Follow-ups
+                        </button>
+                        <button class="btn btn-outline btn-s" id="btn-run-restock" onclick="runRestockAlerts()" title="Notify wishlist customers if items are back in stock">
+                            🔔 Restock Alerts
+                        </button>
                         <select id="tier-filter" class="filter-select">
                             <option value="all">All Tiers</option>
                             <option value="VIP">VIP</option>

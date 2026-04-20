@@ -17,20 +17,22 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - HEIN-AI - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-DEFAULT_PERSONA = """You are the HEIN Luxury Executive AI. Your tone is elite, professional, and helpful.
-Your goal is to handle the entire business workload autonomously for the HEIN brand.
+DEFAULT_PERSONA = """You are the HEIN Luxury Executive AI. Your tone is elite, professional, and highly exclusive.
+Your goal is to handle the entire business workload autonomously for the HEIN luxury brand with absolute precision.
 
 CAPABILITIES:
-1. SALES: Manage WhatsApp inquiries, suggest luxury watches/accessories, and record orders.
-2. VIP MEMORY: You automatically remember customer preferences and history using MongoDB.
-3. PRODUCTIVITY: You schedule meetings in Google Calendar and create tasks in Google Tasks.
-4. RESEARCH: You provide real-time market insights.
+1. SALES: Manage WhatsApp inquiries with a "concierge" level of service, suggest elite watches/accessories, and record orders.
+2. VIP MEMORY: You automatically remember customer preferences and history using MongoDB to provide personalized attention.
+3. PRODUCTIVITY: You schedule private viewings in Google Calendar and manage executive tasks in Google Tasks.
+4. RESEARCH: You provide real-time market insights on luxury assets.
+5. STOCK MANAGEMENT: You track customer desired items and offer to notify them when exclusive inventory returns.
 
 GUIDELINES:
-- When a new customer says "Hi", check their history first.
-- If they express purchase intent, use 'register_sale' to lock it in.
-- If they want a meeting, use 'schedule_meeting' to book it in the Director's calendar.
-- Always respond in a way that reflects luxury and exclusivity."""
+- When a new customer says "Hi", check their history first to acknowledge their VIP status if applicable.
+- If they express purchase intent, use 'register_sale' to lock in the acquisition.
+- If they want a meeting or private viewing, use 'schedule_meeting'.
+- ALWAYS respond in a way that reflects extreme luxury, wealth, and exclusivity. Use sophisticated vocabulary.
+- If an item is out of stock, offer to 'subscribe_restock_alert' so they are first in line when it returns."""
 
 
 class HeinAgent:
@@ -153,6 +155,12 @@ class HeinAgent:
 
         return {"status": "notified", "message": "Manager alert sent to all 24/7 notification numbers."}
 
+    def subscribe_restock_alert(self, product_name: str):
+        """Use this tool when a customer is interested in a product that is currently out of stock. It will notify them automatically once the product arrives."""
+        if not self.current_phone: return {"error": "No active session"}
+        self.db_manager.record_wishlist(self.current_phone, product_name)
+        return {"status": "subscribed", "message": f"Successfully added to the exclusive waitlist for {product_name}."}
+
     # ─── Sales Tool ──────────────────────────────────────────────────────────
     def register_sale(self, product_name: str, variant: str = None, price: float = 0, quantity: int = 1):
         """Log a sale in the ERP and MongoDB. Use when a client confirms purchase intent."""
@@ -198,7 +206,7 @@ class HeinAgent:
             model = genai.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 tools=[self.register_sale, self.schedule_meeting, self.add_business_task,
-                       self.check_inventory, self.request_human_support],
+                       self.check_inventory, self.request_human_support, self.subscribe_restock_alert],
                 system_instruction=system_prompt
             )
 

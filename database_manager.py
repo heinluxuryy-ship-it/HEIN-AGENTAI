@@ -19,8 +19,7 @@ class HeinDatabaseManager:
         if self.uri:
             try:
                 self.client = MongoClient(self.uri, serverSelectionTimeoutMS=5000)
-                # Force a connection test
-                self.client.admin.command('ping')
+                # self.client.admin.command('ping') # Removed blocking ping for faster cloud startup
                 
                 self.db = self.client[self.db_name]
                 self._initialize_collections()
@@ -142,3 +141,62 @@ class HeinDatabaseManager:
             "last_interaction": {"$lt": threshold},
             "tier": "Lead"
         }))
+
+    # --- WISHLIST & RESTOCK LOGIC ---
+
+    def record_wishlist(self, phone, product_name):
+        """Logs a customer's interest in an out-of-stock item."""
+        if self.db is None: return
+        self.db.wishlist.update_one(
+            {"phone": phone, "product_name": product_name},
+            {"$set": {"timestamp": datetime.now(), "notified": False}},
+            upsert=True
+        )
+        logger.info(f"Recorded wishlist item for {phone}: {product_name}")
+
+    def get_restock_candidates(self):
+        """Finds wishlist items that are now back in stock in the products collection."""
+        if self.db is None: return []
+        
+        candidates = list(self.db.wishlist.find({"notified": False}))
+        restocked = []
+        
+        for item in candidates:
+            product_name = item.get("product_name")
+            # Check current inventory
+            product = self.db.products.find_one({
+                "$or": [
+                    {"name": {"$regex": product_name, "$options": "i"}},
+                    {"title": {"$regex": product_name, "$options": "i"}}
+                ],
+                "quantity": {"$gt": 0}
+            })
+            
+            if product:
+                restocked.append({
+                    "phone": item["phone"],
+                    "product_name": product_name,
+                    "actual_name": product.get("name") or product.get("title")
+                })
+        
+        return restocked
+
+    def mark_wishlist_notified(self, phone, product_name):
+        if self.db is None: return
+        self.db.wishlist.update_one(
+            {"phone": phone, "product_name": product_name},
+            {"$set": {"notified": True, "notified_at": datetime.now()}}
+        )
+
+    # --- REVENUE INTELLIGENCE ---
+
+    def get_projected_revenue(self):
+        """Calculates total value of orders in AWAITING_PAYMENT status."""
+        if self.db is None: return 0.0
+        pipeline = [
+            {"$match": {"status": "AWAITING_PAYMENT"}},
+            {"$group": {"_id": None, "total": {"$sum": "$price"}}}
+        ]
+        result = list(self.db.orders.aggregate(pipeline))
+        # Ensure it returns a standard float to prevent JSON serialization errors
+        return float(result[0]['total']) if result else 0.0
